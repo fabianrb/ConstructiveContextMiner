@@ -17,6 +17,10 @@ import org.processmining.plugins.petrinet.replayer.ui.PNReplayerUI;
 import org.processmining.plugins.petrinet.replayresult.PNRepResult;
 import org.processmining.plugins.petrinet.replayresult.StepTypes;
 import org.processmining.plugins.replayer.replayresult.SyncReplayResult;
+import org.processmining.processtree.ProcessTree;
+import org.processmining.processtree.impl.AbstractBlock;
+import org.processmining.processtree.impl.ProcessTreeImpl;
+import org.processmining.processtree.Node;
 
 public class Test1 {
 	@Plugin(
@@ -58,14 +62,35 @@ public String doCCM (UIPluginContext context, XLog log, Petrinet net){
 	}
 
 	System.out.println("Cantidad de alineamientos: " + alignments.size());
+	int i=1;
+	
+	ProcessTree tree = new ProcessTreeImpl();
+	Node n = new AbstractBlock.Seq("");
+	n.setProcessTree(tree);
+	tree.addNode(n);
+	tree.setRoot(n);
 	
 	for (SyncReplayResult rep : alignments) {
+		System.out.println("Alineamiento " + i);
+		i++;
+
 		Iterator<Object> itTask = rep.getNodeInstance().iterator();
 		Iterator<StepTypes> itType = rep.getStepTypes().iterator();
 		while(itTask.hasNext()){
-			
 			StepTypes type = itType.next();
+			itTask.next();
+			switch (type){
+				case LMGOOD : System.out.println("Sync move"); break; //Transition
+				case LMNOGOOD : System.out.println("False sync move"); break;//--
+				case L : System.out.println("Log move"); break;//Log Automaton Node
+				case MINVI : System.out.println("Invisible step"); break;//Transition
+				case MREAL : System.out.println("Model move"); break;//Transition
+				case LMREPLACED : System.out.println("Replaced step"); break;//--
+				case LMSWAPPED: System.out.println("Swapped step"); break;//--
+				default: break;
+			}
 			
+			/*
 			//If it is a log move, just skip
 			if(type == StepTypes.L){
 				itTask.next();//Skip the task
@@ -74,7 +99,7 @@ public String doCCM (UIPluginContext context, XLog log, Petrinet net){
 			else{ //It is a PetriNet Transition
 				Transition trans = ((Transition) itTask.next());
 				//t.add(trans);
-			}
+			}*/
 		}
 	}
 		
