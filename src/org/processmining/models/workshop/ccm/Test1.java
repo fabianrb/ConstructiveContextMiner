@@ -1,5 +1,6 @@
 package org.processmining.models.workshop.ccm;
 
+import java.util.HashSet;
 import java.util.Iterator;
 
 import nl.tue.astar.AStarException;
@@ -17,17 +18,23 @@ import org.processmining.plugins.petrinet.replayer.ui.PNReplayerUI;
 import org.processmining.plugins.petrinet.replayresult.PNRepResult;
 import org.processmining.plugins.petrinet.replayresult.StepTypes;
 import org.processmining.plugins.replayer.replayresult.SyncReplayResult;
+import org.processmining.processtree.Originator;
 import org.processmining.processtree.ProcessTree;
 import org.processmining.processtree.impl.AbstractBlock;
+import org.processmining.processtree.impl.AbstractTask;
 import org.processmining.processtree.impl.ProcessTreeImpl;
 import org.processmining.processtree.Node;
+import org.processmining.processtree.Block;
+import org.processmining.ptconversions.plugins.PluginPN;
+import org.processmining.ptconversions.pn.ProcessTree2Petrinet.InvalidProcessTreeException;
+import org.processmining.ptconversions.pn.ProcessTree2Petrinet.NotYetImplementedException;
 
 public class Test1 {
 	@Plugin(
 		name = "Test1", 
 		parameterLabels = {"Log", "Model"}, 
-		returnLabels = { "Hello world string" }, 
-		returnTypes = { String.class }, 
+		returnLabels = { "Process Tree" }, 
+		returnTypes = { Petrinet.class }, 
 		userAccessible = true, 
 		help = "Produces a representation of a Configurable Process Tree as a String"
 	)
@@ -36,11 +43,11 @@ public class Test1 {
 		author = "Fabian Rojas Blum", 
 		email = "fabian.rojas.blum@gmail.com"
 	)
-	public String helloWorld(UIPluginContext context, XLog log, Petrinet net) {
+	public Petrinet helloWorld(UIPluginContext context, XLog log, Petrinet net) {
 		return doCCM(context, log, net);
 	}
 
-public String doCCM (UIPluginContext context, XLog log, Petrinet net){
+public Petrinet doCCM (UIPluginContext context, XLog log, Petrinet net){
 	//ProcessTree2Petrinet.convert(tree);
 	PNReplayerUI pnReplayerUI = new PNReplayerUI();
 	Object[] resultConfiguration = pnReplayerUI.getConfiguration(context, net, log);
@@ -69,7 +76,11 @@ public String doCCM (UIPluginContext context, XLog log, Petrinet net){
 	n.setProcessTree(tree);
 	tree.addNode(n);
 	tree.setRoot(n);
-	
+	Node n2 = new AbstractTask.Manual("a", new HashSet<Originator>());
+	n2.setProcessTree(tree);
+	tree.addNode(n2);
+	tree.addEdge(((Block)n).addChild(n2));
+		
 	for (SyncReplayResult rep : alignments) {
 		System.out.println("Alineamiento " + i);
 		i++;
@@ -90,6 +101,8 @@ public String doCCM (UIPluginContext context, XLog log, Petrinet net){
 				default: break;
 			}
 			
+			
+			
 			/*
 			//If it is a log move, just skip
 			if(type == StepTypes.L){
@@ -105,7 +118,18 @@ public String doCCM (UIPluginContext context, XLog log, Petrinet net){
 		
 	//return checkMultiETCAlign1(context,log, net, sett, alignments);
 	
+	PluginPN pt2pn = new PluginPN();
+	try {
+		return (Petrinet)pt2pn.convert(context, tree)[0];
+	} catch (NotYetImplementedException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	} catch (InvalidProcessTreeException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
+
 	
-	return "Hola mundo";
+	return null;
 }
 }
