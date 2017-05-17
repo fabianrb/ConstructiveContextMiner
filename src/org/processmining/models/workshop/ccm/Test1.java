@@ -51,13 +51,14 @@ public Petrinet doCCM (UIPluginContext context, XLog log, Petrinet net){
 	//ProcessTree2Petrinet.convert(tree);
 	PNReplayerUI pnReplayerUI = new PNReplayerUI();
 	Object[] resultConfiguration = pnReplayerUI.getConfiguration(context, net, log);
+	
 	if (resultConfiguration == null) {
 		context.getFutureResult(0).cancel(true);
 		return null;
 	}
-	
 	//Compute the alignments
 	IPNReplayAlgorithm selectedAlg = (IPNReplayAlgorithm) resultConfiguration[PNReplayerUI.ALGORITHM];
+
 	PNRepResult alignments = null;
 	
 	try {
