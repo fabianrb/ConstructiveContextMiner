@@ -119,11 +119,13 @@ public class ConstructiveContextMinerPlugin {
 		PluginPN pt2pn = new PluginPN();
 
 		while(it.hasNext()){
+			//convertir a petrinet
 			Entry<List<String>,Integer> entry = (Entry<List<String>, Integer>) it.next();
 			List<String>trace = entry.getKey();
 			Petrinet petri=null;
 			try {
 				petri = (Petrinet)pt2pn.convert(context, tree)[0];
+				
 			} catch (NotYetImplementedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -164,6 +166,7 @@ public class ConstructiveContextMinerPlugin {
 			CostBasedCompleteParam params = new CostBasedCompleteParam(evClassCol, mapping.getDummyEventClass(),transCol);
 			PetrinetReplayerWithILP replayer = new PetrinetReplayerWithILP();
 			*/
+			
 			PNReplayerUI pnReplayerUI = new PNReplayerUI();
 			Object[] resultConfiguration = pnReplayerUI.getConfiguration(context, petri, logOneTrace);
 			if (resultConfiguration == null) {
