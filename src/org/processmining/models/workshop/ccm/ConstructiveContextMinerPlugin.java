@@ -38,6 +38,7 @@ import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 import org.processmining.plugins.astar.petrinet.PetrinetReplayerWithILP;
 import org.processmining.plugins.connectionfactories.logpetrinet.TransEvClassMapping;
+import org.processmining.plugins.petrinet.replayer.PNLogReplayer;
 import org.processmining.plugins.petrinet.replayer.algorithms.IPNReplayAlgorithm;
 import org.processmining.plugins.petrinet.replayer.algorithms.IPNReplayParameter;
 import org.processmining.plugins.petrinet.replayer.algorithms.costbasedcomplete.CostBasedCompleteParam;
@@ -143,7 +144,7 @@ public class ConstructiveContextMinerPlugin {
 			XLog logOneTrace = builder.build();
 			
 			//replay
-			
+			/*
 			EvClassLogPetrinetConnection conn = null;
 			try {
 				conn = context.getConnectionManager().getFirstConnection(EvClassLogPetrinetConnection.class, context, petri,
@@ -152,7 +153,7 @@ public class ConstructiveContextMinerPlugin {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
-			
+			*/
 			/*
 			 * TODO ESTO Aún no funciona
 			 * TransEvClassMapping mapping = (TransEvClassMapping) conn.getObjectWithRole(EvClassLogPetrinetConnection.TRANS2EVCLASSMAPPING);
@@ -167,7 +168,7 @@ public class ConstructiveContextMinerPlugin {
 			PetrinetReplayerWithILP replayer = new PetrinetReplayerWithILP();
 			*/
 			
-			PNReplayerUI pnReplayerUI = new PNReplayerUI();
+			/*PNReplayerUI pnReplayerUI = new PNReplayerUI();
 			Object[] resultConfiguration = pnReplayerUI.getConfiguration(context, petri, logOneTrace);
 			if (resultConfiguration == null) {
 				context.getFutureResult(0).cancel(true);
@@ -187,6 +188,17 @@ public class ConstructiveContextMinerPlugin {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			*/
+			PNLogReplayer replayer = new PNLogReplayer();
+			PNRepResult alignments = null;
+			try {
+				alignments = replayer.replayLog(context,petri,logOneTrace,null,null,null);
+			} catch (AStarException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			
 			
 			//print aligments with current trace
 			System.out.println("Cantidad de alineamientos: " + alignments.size());
