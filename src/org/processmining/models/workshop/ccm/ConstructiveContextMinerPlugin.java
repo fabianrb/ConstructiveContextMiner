@@ -43,6 +43,7 @@ import org.processmining.plugins.petrinet.replayer.algorithms.IPNReplayAlgorithm
 import org.processmining.plugins.petrinet.replayer.algorithms.IPNReplayParameter;
 import org.processmining.plugins.petrinet.replayer.algorithms.costbasedcomplete.CostBasedCompleteParam;
 import org.processmining.plugins.petrinet.replayer.ui.PNReplayerUI;
+import org.processmining.plugins.petrinet.replayer.util.LogAutomatonNode;
 import org.processmining.plugins.petrinet.replayresult.PNRepResult;
 import org.processmining.plugins.petrinet.replayresult.StepTypes;
 import org.processmining.plugins.replayer.replayresult.SyncReplayResult;
@@ -192,8 +193,11 @@ public class ConstructiveContextMinerPlugin {
 			PNLogReplayer replayer = new PNLogReplayer();
 			PNRepResult alignments = null;
 			try {
-				alignments = replayer.replayLog(context,petri,logOneTrace,null,null,null);
+				alignments = replayer.replayLog(context,petri,logOneTrace);
 			} catch (AStarException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (ConnectionCannotBeObtained e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
@@ -211,13 +215,13 @@ public class ConstructiveContextMinerPlugin {
 				Iterator<StepTypes> itType = rep.getStepTypes().iterator();
 				while(itTask.hasNext()){
 					StepTypes type = itType.next();
-					itTask.next();
+					Object a = itTask.next();
 					switch (type){
-						case LMGOOD : System.out.println("Sync move"); break; //Transition
+						case LMGOOD : System.out.print("Sync move --> "); Transition t = (Transition)a; System.out.println(t.getLabel()); break; //Transition
 						case LMNOGOOD : System.out.println("False sync move"); break;//--
-						case L : System.out.println("Log move"); break;//Log Automaton Node
+						case L : System.out.print("Log move --> "); XEventClass tl = (XEventClass) a; System.out.println(tl.getId()); break;//Log Automaton Node
 						case MINVI : System.out.println("Invisible step"); break;//Transition
-						case MREAL : System.out.println("Model move"); break;//Transition
+						case MREAL : System.out.print("Model move --> "); Transition tm = (Transition)a; System.out.println(tm.getLabel()); break;//Transition
 						case LMREPLACED : System.out.println("Replaced step"); break;//--
 						case LMSWAPPED: System.out.println("Swapped step"); break;//--
 						default: break;
@@ -225,6 +229,7 @@ public class ConstructiveContextMinerPlugin {
 				}
 			}
 		}
+		
 		
 		return tree;
 	}
