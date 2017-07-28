@@ -20,6 +20,7 @@ import org.deckfour.xes.classification.XEventClasses;
 import org.deckfour.xes.classification.XEventClassifier;
 import org.deckfour.xes.info.XLogInfo;
 import org.deckfour.xes.info.XLogInfoFactory;
+import org.deckfour.xes.info.impl.XLogInfoImpl;
 import org.deckfour.xes.model.XAttributeMap;
 import org.deckfour.xes.model.XEvent;
 import org.deckfour.xes.model.XLog;
@@ -30,12 +31,17 @@ import org.processmining.contexts.uitopia.UIPluginContext;
 import org.processmining.contexts.uitopia.annotations.UITopiaVariant;
 import org.processmining.framework.connections.ConnectionCannotBeObtained;
 import org.processmining.framework.connections.ConnectionManager;
+import org.processmining.framework.plugin.PluginContext;
 import org.processmining.framework.plugin.annotations.Plugin;
 import org.processmining.log.utils.XLogBuilder;
 import org.processmining.models.connections.petrinets.EvClassLogPetrinetConnection;
+import org.processmining.models.connections.petrinets.behavioral.FinalMarkingConnection;
+import org.processmining.models.connections.petrinets.behavioral.InitialMarkingConnection;
 import org.processmining.models.graphbased.AttributeMap;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
+import org.processmining.models.semantics.petrinet.Marking;
+import org.processmining.models.workshop.sjjleemans.ProcessTree.model.EventClass;
 import org.processmining.plugins.astar.petrinet.PetrinetReplayerWithILP;
 import org.processmining.plugins.connectionfactories.logpetrinet.TransEvClassMapping;
 import org.processmining.plugins.petrinet.replayer.PNLogReplayer;
@@ -61,177 +67,164 @@ import org.processmining.ptconversions.pn.ProcessTree2Petrinet.NotYetImplemented
 public class ConstructiveContextMinerPlugin {
 	@Plugin(name = "Constructive Context Miner", parameterLabels = { "Log" }, returnLabels = { "Hello world string"}, returnTypes = { ProcessTree.class }, userAccessible = true, help = "Produces a representation of a Configurable Process Tree as a String")
 	@UITopiaVariant(affiliation = "Universidad de Chile", author = "Fabian Rojas Blum", email = "fabian.rojas.blum@gmail.com")
-	public ProcessTree helloWorld(UIPluginContext context, XLog log) {
+	public ProcessTree helloWorld(PluginContext context, XLog log) {
 		return doCCM(context, log);
 	}
 
-	public ProcessTree doCCM(UIPluginContext context, XLog log) {
-		// ProcessTree2Petrinet.convert(tree);
-		
-		
-		//check trace ocurrence
-		HashMap<List<String>, Integer> count = new HashMap<List<String>, Integer>();
-
-		for (XTrace trace : log) {
-			List<String> comingtrace = new ArrayList<String>();
-			for (XEvent event : trace) {
-				comingtrace.add(event.getAttributes().get("concept:name")
-						.toString());
-			}
-
-			if (count.keySet().contains(comingtrace)) {
-				count.put(comingtrace, count.get(comingtrace) + 1);
-			} else {
-				count.put(comingtrace, 1);
-			}
-
-		}
-		//sort traces by ocurrence
-		Map<List<String>, Integer> orderedCount = sortByValue(count);
-		
-		
-		//print the sorted log at console
-		for (Map.Entry<List<String>, Integer> entry : orderedCount.entrySet()) {
-			System.out.println(entry.getKey().toString() + entry.getValue());
-		}
-		
-		//create initial sequence tree with initial trace in the ordered log
+	//Creates an initial tree as a sequence with the specified list of events 
+	private ProcessTree createInitialSequentialTree(List<XEventClass>events){
 		ProcessTree tree = new ProcessTreeImpl();
 		Node root = new AbstractBlock.Seq("");
 		root.setProcessTree(tree);
 		tree.addNode(root);
 		tree.setRoot(root);
-
-		Iterator it = orderedCount.entrySet().iterator();
-		
-		if(it.hasNext()){
-			Entry<List<String>,Integer> entry = (Entry<List<String>, Integer>) it.next();
-			for(String name:entry.getKey()){
-				Node childnode = new AbstractTask.Manual(name, new HashSet<Originator>());
-				childnode.setProcessTree(tree);
-				tree.addNode(childnode);
-				tree.addEdge(((Block)root).addChild(childnode));
+		for (XEventClass e:events){
+			Node childnode = new AbstractTask.Manual(e.getId());
+			childnode.setProcessTree(tree);
+			tree.addNode(childnode);
+			tree.addEdge(((Block)root).addChild(childnode));
+		}
+		return tree;
+	}
+	public ProcessTree doCCM(PluginContext context, XLog log) {
+		XEventClassifier usedClassifier = XLogInfoImpl.STANDARD_CLASSIFIER;
+		//check trace ocurrence
+		HashMap<List<XEventClass>, Integer> count = new HashMap<List<XEventClass>, Integer>();
+		XLogInfo info = XLogInfoFactory.createLogInfo(log, usedClassifier);
+		for (XTrace trace : log) {
+			List<XEventClass> comingtrace = new ArrayList<XEventClass>();
+			for (XEvent event : trace) {
+				comingtrace.add(info.getEventClasses().getClassOf(event));
 			}
-		}else{
+			if (count.containsKey(comingtrace)) {
+				count.put(comingtrace, count.get(comingtrace) + 1);
+			} else {
+				count.put(comingtrace, 1);
+			}
+			
+		}
+		//sort traces by ocurrence
+		Map<List<XEventClass>, Integer> orderedCount = sortByValue(count);
+		
+		
+		//print the sorted log at console
+		for (Map.Entry<List<XEventClass>, Integer> entry : orderedCount.entrySet()) {
+			System.out.println(entry.getKey().toString() + entry.getValue());
+		}
+		
+		//create initial sequence tree with initial trace in the ordered log
+		Iterator<List<XEventClass>> iterator = orderedCount.keySet().iterator();
+		ProcessTree tree = null;
+		if(iterator.hasNext()){
+			tree = createInitialSequentialTree(iterator.next());
+		}
+		else{
 			System.out.println("Log vacio");
 			return null;
 		}
 		
-		//iterate the rest of the log
+		//needed to convert ProcessTree to PetriNet
 		PluginPN pt2pn = new PluginPN();
-
-		while(it.hasNext()){
-			//convertir a petrinet
-			Entry<List<String>,Integer> entry = (Entry<List<String>, Integer>) it.next();
-			List<String>trace = entry.getKey();
-			Petrinet petri=null;
+		
+		//iterate with the rest through the rest of the log
+		while(iterator.hasNext()){
+			//convertir arbol actual
+			Petrinet petri = null;
 			try {
 				petri = (Petrinet)pt2pn.convert(context, tree)[0];
-				
 			} catch (NotYetImplementedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+				return null;
 			} catch (InvalidProcessTreeException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			}
-			
-			
-			//Create log with unique trace
-			XLogBuilder builder = XLogBuilder.newInstance().startLog("newlog").addTrace("newtrace");
-			for(String event:trace){
-				builder.addEvent(event);
-			}
-			XLog logOneTrace = builder.build();
-			
-			//replay
-			/*
-			EvClassLogPetrinetConnection conn = null;
-			try {
-				conn = context.getConnectionManager().getFirstConnection(EvClassLogPetrinetConnection.class, context, petri,
-						logOneTrace);
-			} catch (ConnectionCannotBeObtained e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-			*/
-			/*
-			 * TODO ESTO Aún no funciona
-			 * TransEvClassMapping mapping = (TransEvClassMapping) conn.getObjectWithRole(EvClassLogPetrinetConnection.TRANS2EVCLASSMAPPING);
-			Collection<Transition> transCol = petri.getTransitions();
-			Collection<XEventClass> evClassCol;
-			XEventClassifier classifier = mapping.getEventClassifier();
-			XLogInfo summary = XLogInfoFactory.createLogInfo(log, classifier);
-			XEventClasses eventClassesName = summary.getEventClasses();
-			evClassCol = new HashSet<XEventClass>(eventClassesName.getClasses());
-			evClassCol.add(mapping.getDummyEventClass());
-			CostBasedCompleteParam params = new CostBasedCompleteParam(evClassCol, mapping.getDummyEventClass(),transCol);
-			PetrinetReplayerWithILP replayer = new PetrinetReplayerWithILP();
-			*/
-			
-			/*PNReplayerUI pnReplayerUI = new PNReplayerUI();
-			Object[] resultConfiguration = pnReplayerUI.getConfiguration(context, petri, logOneTrace);
-			if (resultConfiguration == null) {
-				context.getFutureResult(0).cancel(true);
 				return null;
 			}
-			
-			//Compute the alignments
-			IPNReplayAlgorithm selectedAlg = (IPNReplayAlgorithm) resultConfiguration[PNReplayerUI.ALGORITHM];
-			PNRepResult alignments = null;
+			nextIteration(context, tree, petri, iterator.next());
+		}
+		return tree;
 
-			
-			
-			try {
-				alignments = selectedAlg.replayLog(context, petri, logOneTrace, (TransEvClassMapping) resultConfiguration[PNReplayerUI.MAPPING], 
-						(IPNReplayParameter) resultConfiguration[PNReplayerUI.PARAMETERS]);
-			} catch (AStarException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			*/
-			PNLogReplayer replayer = new PNLogReplayer();
-			PNRepResult alignments = null;
-			try {
-				alignments = replayer.replayLog(context,petri,logOneTrace);
-			} catch (AStarException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (ConnectionCannotBeObtained e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
-			
-			
-			//print aligments with current trace
-			System.out.println("Cantidad de alineamientos: " + alignments.size());
-			int i=1;
-			for (SyncReplayResult rep : alignments) {
-				System.out.println("Alineamiento " + i);
-				i++;
+	}
 
-				Iterator<Object> itTask = rep.getNodeInstance().iterator();
-				Iterator<StepTypes> itType = rep.getStepTypes().iterator();
-				while(itTask.hasNext()){
-					StepTypes type = itType.next();
-					Object a = itTask.next();
-					switch (type){
-						case LMGOOD : System.out.print("Sync move --> "); Transition t = (Transition)a; System.out.println(t.getLabel()); break; //Transition
-						case LMNOGOOD : System.out.println("False sync move"); break;//--
-						case L : System.out.print("Log move --> "); XEventClass tl = (XEventClass) a; System.out.println(tl.getId()); break;//Log Automaton Node
-						case MINVI : System.out.println("Invisible step"); break;//Transition
-						case MREAL : System.out.print("Model move --> "); Transition tm = (Transition)a; System.out.println(tm.getLabel()); break;//Transition
-						case LMREPLACED : System.out.println("Replaced step"); break;//--
-						case LMSWAPPED: System.out.println("Swapped step"); break;//--
-						default: break;
-					}
-				}
+	private void nextIteration(PluginContext context, ProcessTree tree, Petrinet petri,
+			List<XEventClass> trace) {
+		//create unique trace log
+		XLogBuilder builder = XLogBuilder.newInstance().startLog("newlog").addTrace("newtrace");
+		for(XEventClass event:trace){
+			//TODO ver como deshardcodear esto
+			builder.addEvent(event.getId().substring(0, event.getId().length()-1));
+		}
+		XLog logOneTrace = builder.build();
+		
+		//Check alignments between single log and current model  
+		SyncReplayResult rep = replayLog(context,logOneTrace,petri);
+		Iterator<Object> itTask = rep.getNodeInstance().iterator();
+		Iterator<StepTypes> itType = rep.getStepTypes().iterator();
+		while(itTask.hasNext()){
+			StepTypes type = itType.next();
+			Object a = itTask.next();
+			switch (type){
+				case LMGOOD : System.out.print("Sync move --> "); Transition t = (Transition)a; System.out.println(t.getLabel()); break; //Transition					case LMNOGOOD : System.out.println("False sync move"); break;//--
+				case L : System.out.print("Log move --> "); XEventClass tl = (XEventClass) a; System.out.println(tl.getId()); break;//Log Automaton Node
+				case MINVI : System.out.println("Invisible step"); break;//Transition
+				case MREAL : System.out.print("Model move --> "); Transition tm = (Transition)a; System.out.println(tm.getLabel()); break;//Transition
+				case LMREPLACED : System.out.println("Replaced step"); break;//--
+				case LMSWAPPED: System.out.println("Swapped step"); break;//--
+				default: break;
 			}
 		}
 		
 		
-		return tree;
+		
+	}
+
+	//Replay single
+	private SyncReplayResult replayLog(PluginContext context, XLog logOneTrace,
+			Petrinet petri) {
+		//create mapping between single log and petrinet
+		TransEvClassMapping maptest = org.processmining.plugins.compliance.align.PNLogReplayer.getEventClassMapping(context, petri, logOneTrace, XLogInfoImpl.STANDARD_CLASSIFIER);
+		
+		//trace(log) alignment replayer
+		PNLogReplayer replayer = new PNLogReplayer();
+		
+		//parameter build
+		XLogInfo logInfo = XLogInfoFactory.createLogInfo(logOneTrace);
+		CostBasedCompleteParam parameter = new CostBasedCompleteParam(logInfo.getEventClasses().getClasses(),
+				maptest.getDummyEventClass(), petri.getTransitions(), 2, 5);
+		parameter.getMapEvClass2Cost().remove(maptest.getDummyEventClass());
+		parameter.getMapEvClass2Cost().put(maptest.getDummyEventClass(), 1);
+		parameter.setGUIMode(false);
+		parameter.setCreateConn(false);
+		parameter.setMaxNumOfStates(200000);
+		
+		//getting petrinet initial and final marking 
+		Marking iniMark=null;
+		Marking finalMark =  null;
+		try {
+			iniMark = context.getConnectionManager()
+					.getFirstConnection(InitialMarkingConnection.class, context, petri)
+					.getObjectWithRole(InitialMarkingConnection.MARKING);
+			finalMark = context.getConnectionManager()
+					.getFirstConnection(FinalMarkingConnection.class, context, petri)
+					.getObjectWithRole(FinalMarkingConnection.MARKING);
+		} catch (ConnectionCannotBeObtained e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		parameter.setInitialMarking(iniMark);
+		parameter.setFinalMarkings(new Marking[] {finalMark});
+
+		PetrinetReplayerWithILP replWithoutILP = new PetrinetReplayerWithILP();
+		PNRepResult alignments = null;
+		try {
+			alignments = replayer.replayLog(context, petri, logOneTrace, maptest, replWithoutILP, parameter);
+		} catch (AStarException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+
+		}
+		return alignments.iterator().next();
 	}
 
 	public static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(

@@ -9,6 +9,7 @@ import org.deckfour.xes.classification.XEventClass;
 import org.deckfour.xes.info.XLogInfo;
 import org.deckfour.xes.info.XLogInfoFactory;
 import org.deckfour.xes.info.impl.XLogInfoImpl;
+import org.deckfour.xes.model.XEvent;
 import org.deckfour.xes.model.XLog;
 import org.deckfour.xes.model.XTrace;
 import org.processmining.contexts.uitopia.UIPluginContext;
@@ -75,23 +76,32 @@ public class Test2 {
 			System.out.println("no hecho");
 
 		}*/
+		XLogInfo info = XLogInfoFactory.createLogInfo(log, XLogInfoImpl.NAME_CLASSIFIER);
+		
+		
+		XTrace trace = log.get(0);
+		for(XEvent event:trace){
+			XEventClass xes = info.getEventClasses().getClassOf(event);
+			System.out.println(xes.getId());
+		}
 		ProcessTree tree = new ProcessTreeImpl();
 		Node n = new AbstractBlock.Seq("");
 		n.setProcessTree(tree);
 		tree.addNode(n);
 		tree.setRoot(n);
-		Node n2 = new AbstractTask.Manual("a");
+		Node n2 = new AbstractTask.Manual("a+");
 		n2.setProcessTree(tree);
 		tree.addNode(n2);
 		tree.addEdge(((Block)n).addChild(n2));
-		n2 = new AbstractTask.Manual("b");
+		n2 = new AbstractTask.Manual("b+");
 		n2.setProcessTree(tree);
 		tree.addNode(n2);
 		tree.addEdge(((Block)n).addChild(n2));
-		n2 = new AbstractTask.Manual("c");
+		n2 = new AbstractTask.Manual("c+");
 		n2.setProcessTree(tree);
 		tree.addNode(n2);
 		tree.addEdge(((Block)n).addChild(n2));
+		
 		Petrinet net = null;
 		PluginPN pt2pn = new PluginPN();
 		try {
@@ -119,7 +129,7 @@ public class Test2 {
 		}
 		
 		
-		TransEvClassMapping maptest = org.processmining.plugins.compliance.align.PNLogReplayer.getEventClassMapping(context, net, log, XLogInfoImpl.NAME_CLASSIFIER);
+		TransEvClassMapping maptest = org.processmining.plugins.compliance.align.PNLogReplayer.getEventClassMapping(context, net, log, XLogInfoImpl.STANDARD_CLASSIFIER);
 
 		
 		
@@ -140,9 +150,9 @@ public class Test2 {
 		//parameter build
 		XLogInfo logInfo = XLogInfoFactory.createLogInfo(log);
 		CostBasedCompleteParam parameter = new CostBasedCompleteParam(logInfo.getEventClasses().getClasses(),
-				map1.getDummyEventClass(), net.getTransitions(), 2, 5);
-		parameter.getMapEvClass2Cost().remove(map1.getDummyEventClass());
-		parameter.getMapEvClass2Cost().put(map1.getDummyEventClass(), 1);
+				maptest.getDummyEventClass(), net.getTransitions(), 2, 5);
+		parameter.getMapEvClass2Cost().remove(maptest.getDummyEventClass());
+		parameter.getMapEvClass2Cost().put(maptest.getDummyEventClass(), 1);
 		
 		
 		Marking iniMark=null;
