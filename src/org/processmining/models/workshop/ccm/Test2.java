@@ -51,9 +51,9 @@ import org.processmining.ptconversions.pn.ProcessTree2Petrinet.NotYetImplemented
 
 @Plugin(
 		name = "Test2", 
-		parameterLabels = {"Log"}, 
+		parameterLabels = {}, 
 		returnLabels = { "TestModel" }, 
-		returnTypes = {TestModel.class}, 
+		returnTypes = {ProcessTree.class}, 
 		userAccessible = true, 
 		help = "This is a new test"
 	)
@@ -63,175 +63,27 @@ public class Test2 {
 		author = "Fabian Rojas Blum", 
 		email = "fabian.rojas.blum@gmail.com"
 	)
-	@PluginVariant(variantLabel = "Mine a Workshop Model, default", requiredParameterLabels = { 0})
-	public TestModel helloWorld(PluginContext context, XLog log) {
-		/*try {
-			PNRepResult repResult = context.tryToFindOrConstructFirstObject(PNRepResult.class,
-					PNRepResultAllRequiredParamConnection.class, PNRepResultAllRequiredParamConnection.PNREPRESULT, net,
-					log);
-			System.out.println("hecho");
-		} catch (ConnectionCannotBeObtained e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			System.out.println("no hecho");
-
-		}*/
-		XLogInfo info = XLogInfoFactory.createLogInfo(log, XLogInfoImpl.NAME_CLASSIFIER);
+	@PluginVariant(variantLabel = "prueba", requiredParameterLabels = {})
+	public ProcessTree helloWorld(PluginContext context) {
 		
-		
-		XTrace trace = log.get(0);
-		for(XEvent event:trace){
-			XEventClass xes = info.getEventClasses().getClassOf(event);
-			System.out.println(xes.getId());
-		}
 		ProcessTree tree = new ProcessTreeImpl();
 		Node n = new AbstractBlock.Seq("");
 		n.setProcessTree(tree);
 		tree.addNode(n);
 		tree.setRoot(n);
-		Node n2 = new AbstractTask.Manual("a+");
+		Node n1 = new AbstractTask.Manual("a+");
+		n1.setProcessTree(tree);
+		tree.addNode(n1);
+		tree.addEdge(((Block)n).addChild(n1));
+		Node n2 = new AbstractTask.Manual("b+");
 		n2.setProcessTree(tree);
 		tree.addNode(n2);
 		tree.addEdge(((Block)n).addChild(n2));
-		n2 = new AbstractTask.Manual("b+");
-		n2.setProcessTree(tree);
-		tree.addNode(n2);
-		tree.addEdge(((Block)n).addChild(n2));
-		n2 = new AbstractTask.Manual("c+");
-		n2.setProcessTree(tree);
-		tree.addNode(n2);
-		tree.addEdge(((Block)n).addChild(n2));
-		
-		Petrinet net = null;
-		PluginPN pt2pn = new PluginPN();
-		try {
-			net = (Petrinet)pt2pn.convert(context, tree)[0];
-		} catch (NotYetImplementedException e2) {
-			// TODO Auto-generated catch block
-			e2.printStackTrace();
-		} catch (InvalidProcessTreeException e2) {
-			// TODO Auto-generated catch block
-			e2.printStackTrace();
-		}
+		Node n3 = new AbstractTask.Manual("c+");
+		n3.setProcessTree(tree);
+		tree.addNode(n3);
+		tree.addEdge(((Block)n).addChild(n3));
+		return tree;
 
-		
-		//probando una segunda net 
-		Petrinet net2 = null;
-		PluginPN pt2pn2 = new PluginPN();
-		try {
-			net2 = (Petrinet)pt2pn2.convert(context, tree)[0];
-		} catch (NotYetImplementedException e2) {
-			// TODO Auto-generated catch block
-			e2.printStackTrace();
-		} catch (InvalidProcessTreeException e2) {
-			// TODO Auto-generated catch block
-			e2.printStackTrace();
-		}
-		
-		
-		TransEvClassMapping maptest = org.processmining.plugins.compliance.align.PNLogReplayer.getEventClassMapping(context, net, log, XLogInfoImpl.STANDARD_CLASSIFIER);
-
-		
-		
-		TransEvClassMapping map1 = null;
-		try {
-			map1 = context.tryToFindOrConstructFirstObject(TransEvClassMapping.class, EvClassLogPetrinetConnection.class, EvClassLogPetrinetConnection.TRANS2EVCLASSMAPPING, net, log);
-			System.out.println("mapping");
-
-		} catch (ConnectionCannotBeObtained e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			System.out.println("nomapping");
-
-		}
-		
-		PNLogReplayer replayer = new PNLogReplayer();
-		
-		//parameter build
-		XLogInfo logInfo = XLogInfoFactory.createLogInfo(log);
-		CostBasedCompleteParam parameter = new CostBasedCompleteParam(logInfo.getEventClasses().getClasses(),
-				maptest.getDummyEventClass(), net.getTransitions(), 2, 5);
-		parameter.getMapEvClass2Cost().remove(maptest.getDummyEventClass());
-		parameter.getMapEvClass2Cost().put(maptest.getDummyEventClass(), 1);
-		
-		
-		Marking iniMark=null;
-		try {
-			iniMark = context.getConnectionManager()
-					.getFirstConnection(InitialMarkingConnection.class, context, net)
-					.getObjectWithRole(InitialMarkingConnection.MARKING);
-		} catch (ConnectionCannotBeObtained e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		
-		Marking finalMark =  null;
-		try {
-			finalMark = context.getConnectionManager()
-					.getFirstConnection(FinalMarkingConnection.class, context, net)
-					.getObjectWithRole(FinalMarkingConnection.MARKING);
-		} catch (ConnectionCannotBeObtained e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-	
-		parameter.setGUIMode(false);
-		parameter.setCreateConn(false);
-		parameter.setInitialMarking(iniMark);
-		parameter.setFinalMarkings(new Marking[] {finalMark});
-		parameter.setMaxNumOfStates(200000);
-
-		
-		
-		PetrinetReplayerWithILP replWithoutILP = new PetrinetReplayerWithILP();
-		PNRepResult alignments = null;
-		try {
-			alignments = replayer.replayLog(context, net, log, maptest, replWithoutILP, parameter);
-			System.out.println("lo hizo");
-		} catch (AStarException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			System.out.println("no lo hizo");
-
-		}
-		
-		System.out.println("Cantidad de alineamientos: " + alignments.size());
-		int i=1;
-		for (SyncReplayResult rep : alignments) {
-			System.out.println("Alineamiento " + i);
-			i++;
-
-			Iterator<Object> itTask = rep.getNodeInstance().iterator();
-			Iterator<StepTypes> itType = rep.getStepTypes().iterator();
-			while(itTask.hasNext()){
-				StepTypes type = itType.next();
-				Object a = itTask.next();
-				switch (type){
-					case LMGOOD : System.out.print("Sync move --> "); Transition t = (Transition)a; System.out.println(t.getLabel()); break; //Transition
-					case LMNOGOOD : System.out.println("False sync move"); break;//--
-					case L : System.out.print("Log move --> "); XEventClass tl = (XEventClass) a; System.out.println(tl.getId()); break;//Log Automaton Node
-					case MINVI : System.out.println("Invisible step"); break;//Transition
-					case MREAL : System.out.print("Model move --> "); Transition tm = (Transition)a; System.out.println(tm.getLabel()); break;//Transition
-					case LMREPLACED : System.out.println("Replaced step"); break;//--
-					case LMSWAPPED: System.out.println("Swapped step"); break;//--
-					default: break;
-				}
-			}
-		}
-		
-/*
-		EvClassLogPetrinetConnection conn = null;
-		try {
-			conn = context.getConnectionManager().getFirstConnection(EvClassLogPetrinetConnection.class, context, net,
-					log);
-			System.out.println("funciono");
-
-		} catch (ConnectionCannotBeObtained e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-			System.out.println("no funciono");
-
-		}*/
-		return new TestModel();
 	}
 }
