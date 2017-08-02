@@ -64,6 +64,8 @@ import org.processmining.ptconversions.plugins.PluginPN;
 import org.processmining.ptconversions.pn.ProcessTree2Petrinet.InvalidProcessTreeException;
 import org.processmining.ptconversions.pn.ProcessTree2Petrinet.NotYetImplementedException;
 
+import edu.uci.ics.jung.graph.util.Pair;
+
 public class ConstructiveContextMinerPlugin {
 	@Plugin(name = "Constructive Context Miner", parameterLabels = { "Log" }, returnLabels = { "Hello world string"}, returnTypes = { ProcessTree.class }, userAccessible = true, help = "Produces a representation of a Configurable Process Tree as a String")
 	@UITopiaVariant(affiliation = "Universidad de Chile", author = "Fabian Rojas Blum", email = "fabian.rojas.blum@gmail.com")
@@ -91,10 +93,25 @@ public class ConstructiveContextMinerPlugin {
 		//check trace ocurrence
 		HashMap<List<XEventClass>, Integer> count = new HashMap<List<XEventClass>, Integer>();
 		XLogInfo info = XLogInfoFactory.createLogInfo(log, usedClassifier);
+		HashMap<Pair<XEventClass>,Integer> orderingWeight = new HashMap<Pair<XEventClass>,Integer>();
+		
 		for (XTrace trace : log) {
+			XEventClass last = null;
 			List<XEventClass> comingtrace = new ArrayList<XEventClass>();
 			for (XEvent event : trace) {
 				comingtrace.add(info.getEventClasses().getClassOf(event));
+				//updating orderingWeight matrix
+				if(last == null){
+					last = info.getEventClasses().getClassOf(event);
+				}else{
+					Pair<XEventClass> tmp = new Pair<XEventClass>(last,info.getEventClasses().getClassOf(event));
+					if (orderingWeight.get(tmp)==null){
+						orderingWeight.put(tmp, 1);
+					}else{
+						orderingWeight.put(tmp, orderingWeight.get(tmp)+1);
+					}
+					last = info.getEventClasses().getClassOf(event);
+				}
 			}
 			if (count.containsKey(comingtrace)) {
 				count.put(comingtrace, count.get(comingtrace) + 1);
@@ -105,8 +122,10 @@ public class ConstructiveContextMinerPlugin {
 		}
 		//sort traces by ocurrence
 		Map<List<XEventClass>, Integer> orderedCount = sortByValue(count);
-		
-		
+		//print ordering Weight
+		for(Pair<XEventClass> e :orderingWeight.keySet()){
+			System.out.println(e.getFirst().getId() + " " + e.getSecond().getId() + " --> " + orderingWeight.get(e));
+		}
 		//print the sorted log at console
 		for (Map.Entry<List<XEventClass>, Integer> entry : orderedCount.entrySet()) {
 			System.out.println(entry.getKey().toString() + entry.getValue());
@@ -164,6 +183,7 @@ public class ConstructiveContextMinerPlugin {
 		while(itTask.hasNext()){
 			StepTypes type = itType.next();
 			Object a = itTask.next();
+			
 			switch (type){
 				case LMGOOD : System.out.print("Sync move --> "); Transition t = (Transition)a; System.out.println(t.getLabel()); break; //Transition					case LMNOGOOD : System.out.println("False sync move"); break;//--
 				case L : System.out.print("Log move --> "); XEventClass tl = (XEventClass) a; System.out.println(tl.getId()); break;//Log Automaton Node
@@ -227,6 +247,11 @@ public class ConstructiveContextMinerPlugin {
 		return alignments.iterator().next();
 	}
 
+	
+	public int getWeightOfRelation(HashMap<Pair<XEventClass>,Integer> orderingWeight, Pair<XEventClass>pair){
+		return orderingWeight.get(pair);
+		
+	}
 	public static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(
 			Map<K, V> map) {
 		List<Map.Entry<K, V>> list = new LinkedList<>(map.entrySet());

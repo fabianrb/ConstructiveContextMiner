@@ -66,7 +66,7 @@ public class Test2 {
 	@PluginVariant(variantLabel = "prueba", requiredParameterLabels = {})
 	public ProcessTree helloWorld(PluginContext context) {
 		
-		ProcessTree tree = new ProcessTreeImpl();
+		ProcessTree tree = new ProcessTreeUpdatable();
 		Node n = new AbstractBlock.Seq("");
 		n.setProcessTree(tree);
 		tree.addNode(n);
