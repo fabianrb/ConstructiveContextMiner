@@ -12,6 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import nl.tue.astar.AStarException;
 
@@ -89,28 +90,55 @@ public class ConstructiveContextMinerPlugin {
 		return tree;
 	}
 	public ProcessTree doCCM(PluginContext context, XLog log) {
+		//TODO UI get params
 		XEventClassifier usedClassifier = XLogInfoImpl.STANDARD_CLASSIFIER;
+		String[] attributes = {"branch"};
+		
+		//checkLogAttributes
+		XLogInfo info = XLogInfoFactory.createLogInfo(log, usedClassifier);
+		for(String traceAttribute:info.getTraceAttributeInfo().getAttributeKeys()){
+			System.out.println("Trace Attribute: " + traceAttribute);
+		}
+		
+		
 		//check trace ocurrence
 		HashMap<List<XEventClass>, Integer> count = new HashMap<List<XEventClass>, Integer>();
-		XLogInfo info = XLogInfoFactory.createLogInfo(log, usedClassifier);
 		HashMap<Pair<XEventClass>,Integer> orderingWeight = new HashMap<Pair<XEventClass>,Integer>();
+		HashMap<XEventClass,Set<XEventClass>> preceeds = new HashMap<XEventClass,Set<XEventClass>>();
+		HashMap<XEventClass,Set<XEventClass>> follows = new HashMap<XEventClass,Set<XEventClass>>();
 		
 		for (XTrace trace : log) {
+			//System.out.println("Value: " + trace.getAttributes().get("last_phase"));
 			XEventClass last = null;
 			List<XEventClass> comingtrace = new ArrayList<XEventClass>();
 			for (XEvent event : trace) {
-				comingtrace.add(info.getEventClasses().getClassOf(event));
+				XEventClass eventClass = info.getEventClasses().getClassOf(event);
+				comingtrace.add(eventClass);
 				//updating orderingWeight matrix
 				if(last == null){
-					last = info.getEventClasses().getClassOf(event);
+					last = eventClass;
 				}else{
-					Pair<XEventClass> tmp = new Pair<XEventClass>(last,info.getEventClasses().getClassOf(event));
+					Pair<XEventClass> tmp = new Pair<XEventClass>(last,eventClass);
 					if (orderingWeight.get(tmp)==null){
 						orderingWeight.put(tmp, 1);
 					}else{
 						orderingWeight.put(tmp, orderingWeight.get(tmp)+1);
 					}
-					last = info.getEventClasses().getClassOf(event);
+					//creating precedence and procedence
+					if(follows.get(last) == null){
+						follows.put(last,new HashSet<XEventClass>());
+						follows.get(last).add(eventClass);
+					}else{
+						follows.get(last).add(eventClass);
+					}
+					
+					if(preceeds.get(eventClass) == null){
+						preceeds.put(eventClass,new HashSet<XEventClass>());
+						preceeds.get(eventClass).add(last);
+					}else{
+						preceeds.get(eventClass).add(last);
+					}
+					last = eventClass;		
 				}
 			}
 			if (count.containsKey(comingtrace)) {
@@ -122,10 +150,32 @@ public class ConstructiveContextMinerPlugin {
 		}
 		//sort traces by ocurrence
 		Map<List<XEventClass>, Integer> orderedCount = sortByValue(count);
+		
 		//print ordering Weight
 		for(Pair<XEventClass> e :orderingWeight.keySet()){
 			System.out.println(e.getFirst().getId() + " " + e.getSecond().getId() + " --> " + orderingWeight.get(e));
 		}
+		
+		//print follows
+		System.out.println("Follows Relationships");
+		for(XEventClass f:follows.keySet()){
+			System.out.print (f.getId()+"-->{");
+			for(XEventClass fi: follows.get(f)){
+				System.out.print(fi.getId() + " " + "(" +orderingWeight.get(new Pair<XEventClass>(f,fi))+")");
+			}
+			System.out.println("}");
+		}
+		
+		System.out.println("Precees Relationships");
+		for(XEventClass p:preceeds.keySet()){
+			System.out.print (p.getId()+"-->{");
+			for(XEventClass pi: preceeds.get(p)){
+				System.out.print(pi.getId() + " " + "(" +orderingWeight.get(new Pair<XEventClass>(pi,p))+")");
+			}
+			System.out.println("}");
+		}
+
+		
 		//print the sorted log at console
 		for (Map.Entry<List<XEventClass>, Integer> entry : orderedCount.entrySet()) {
 			System.out.println(entry.getKey().toString() + entry.getValue());
