@@ -100,7 +100,7 @@ public class ConstructiveContextMinerPlugin {
 			for(int i=0;i<contextAttributes.length;i++){
 				contextAttributes[i] = trace.getAttributes().get(attributes[i])+"";
 			}
-			System.out.println("Value: " + trace.getAttributes().get("last_phase"));
+			//System.out.println("Value: " + trace.getAttributes().get("last_phase"));
 			XEventClass last = null;
 			List<XEventClass> comingtrace = new ArrayList<XEventClass>();
 			for (XEvent event : trace) {
