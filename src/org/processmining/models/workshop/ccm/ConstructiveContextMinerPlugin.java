@@ -1,7 +1,7 @@
 package org.processmining.models.workshop.ccm;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -11,52 +11,37 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import nl.tue.astar.AStarException;
 
 import org.deckfour.xes.classification.XEventClass;
-import org.deckfour.xes.classification.XEventClasses;
 import org.deckfour.xes.classification.XEventClassifier;
 import org.deckfour.xes.info.XLogInfo;
 import org.deckfour.xes.info.XLogInfoFactory;
 import org.deckfour.xes.info.impl.XLogInfoImpl;
-import org.deckfour.xes.model.XAttributeMap;
 import org.deckfour.xes.model.XEvent;
 import org.deckfour.xes.model.XLog;
 import org.deckfour.xes.model.XTrace;
-import org.deckfour.xes.model.impl.XAttributeMapImpl;
-import org.deckfour.xes.model.impl.XTraceImpl;
-import org.processmining.contexts.uitopia.UIPluginContext;
 import org.processmining.contexts.uitopia.annotations.UITopiaVariant;
 import org.processmining.framework.connections.ConnectionCannotBeObtained;
-import org.processmining.framework.connections.ConnectionManager;
 import org.processmining.framework.plugin.PluginContext;
 import org.processmining.framework.plugin.annotations.Plugin;
 import org.processmining.log.utils.XLogBuilder;
-import org.processmining.models.connections.petrinets.EvClassLogPetrinetConnection;
 import org.processmining.models.connections.petrinets.behavioral.FinalMarkingConnection;
 import org.processmining.models.connections.petrinets.behavioral.InitialMarkingConnection;
-import org.processmining.models.graphbased.AttributeMap;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 import org.processmining.models.semantics.petrinet.Marking;
-import org.processmining.models.workshop.sjjleemans.ProcessTree.model.EventClass;
 import org.processmining.plugins.astar.petrinet.PetrinetReplayerWithILP;
 import org.processmining.plugins.connectionfactories.logpetrinet.TransEvClassMapping;
 import org.processmining.plugins.petrinet.replayer.PNLogReplayer;
-import org.processmining.plugins.petrinet.replayer.algorithms.IPNReplayAlgorithm;
-import org.processmining.plugins.petrinet.replayer.algorithms.IPNReplayParameter;
 import org.processmining.plugins.petrinet.replayer.algorithms.costbasedcomplete.CostBasedCompleteParam;
-import org.processmining.plugins.petrinet.replayer.ui.PNReplayerUI;
-import org.processmining.plugins.petrinet.replayer.util.LogAutomatonNode;
 import org.processmining.plugins.petrinet.replayresult.PNRepResult;
 import org.processmining.plugins.petrinet.replayresult.StepTypes;
 import org.processmining.plugins.replayer.replayresult.SyncReplayResult;
 import org.processmining.processtree.Block;
 import org.processmining.processtree.Node;
-import org.processmining.processtree.Originator;
 import org.processmining.processtree.ProcessTree;
 import org.processmining.processtree.impl.AbstractBlock;
 import org.processmining.processtree.impl.AbstractTask;
@@ -92,23 +77,30 @@ public class ConstructiveContextMinerPlugin {
 	public ProcessTree doCCM(PluginContext context, XLog log) {
 		//TODO UI get params
 		XEventClassifier usedClassifier = XLogInfoImpl.STANDARD_CLASSIFIER;
-		String[] attributes = {"branch"};
-		
+		String[] attributes = {"last_phase","branch"};
+		boolean useRelativeFrequency = true;
 		//checkLogAttributes
 		XLogInfo info = XLogInfoFactory.createLogInfo(log, usedClassifier);
 		for(String traceAttribute:info.getTraceAttributeInfo().getAttributeKeys()){
 			System.out.println("Trace Attribute: " + traceAttribute);
 		}
-		
+	
 		
 		//check trace ocurrence
-		HashMap<List<XEventClass>, Integer> count = new HashMap<List<XEventClass>, Integer>();
+		HashMap<List<String>, Integer> contexts = new HashMap<List<String>, Integer>();
+		HashMap<TraceWithVariant, Integer> countWithVariant = new HashMap<TraceWithVariant, Integer>();
+		
 		HashMap<Pair<XEventClass>,Integer> orderingWeight = new HashMap<Pair<XEventClass>,Integer>();
 		HashMap<XEventClass,Set<XEventClass>> preceeds = new HashMap<XEventClass,Set<XEventClass>>();
 		HashMap<XEventClass,Set<XEventClass>> follows = new HashMap<XEventClass,Set<XEventClass>>();
 		
-		for (XTrace trace : log) {
-			//System.out.println("Value: " + trace.getAttributes().get("last_phase"));
+		for (XTrace trace : log) {	
+			//getting the context (trace attributes)
+			String [] contextAttributes = new String [attributes.length];
+			for(int i=0;i<contextAttributes.length;i++){
+				contextAttributes[i] = trace.getAttributes().get(attributes[i])+"";
+			}
+			System.out.println("Value: " + trace.getAttributes().get("last_phase"));
 			XEventClass last = null;
 			List<XEventClass> comingtrace = new ArrayList<XEventClass>();
 			for (XEvent event : trace) {
@@ -141,16 +133,41 @@ public class ConstructiveContextMinerPlugin {
 					last = eventClass;		
 				}
 			}
-			if (count.containsKey(comingtrace)) {
-				count.put(comingtrace, count.get(comingtrace) + 1);
+			TraceWithVariant tracev = new TraceWithVariant(comingtrace, contextAttributes);
+			if (countWithVariant.containsKey(tracev)) {
+				countWithVariant.put(tracev, countWithVariant.get(tracev) + 1);
 			} else {
-				count.put(comingtrace, 1);
+				countWithVariant.put(tracev, 1);
+			}
+			
+			//adding to contextcounter
+			List<String> tmp = Arrays.asList(contextAttributes);
+			if (contexts.containsKey(tmp)){
+				contexts.put(tmp, contexts.get(tmp)+1);
+			}else{
+				contexts.put(tmp,1);
 			}
 			
 		}
-		//sort traces by ocurrence
-		Map<List<XEventClass>, Integer> orderedCount = sortByValue(count);
 		
+		//resort according to relative frequency
+		HashMap<TraceWithVariant, Float> relativeFreqWithVariant = new HashMap<TraceWithVariant, Float>();
+		
+		for(TraceWithVariant twv: countWithVariant.keySet()){
+			relativeFreqWithVariant.put(twv,(float)countWithVariant.get(twv)/contexts.get(twv.getContextAsList())*100);
+		}
+		
+		//sort traces by ocurrence or value
+		
+		Map<TraceWithVariant, Float> orderedCountRelative = sortByValue(relativeFreqWithVariant);
+		Map<TraceWithVariant, Integer> orderedCountAbsolute = sortByValue(countWithVariant);
+		
+		
+		//print contexts;
+		System.out.println("Existen " + contexts.size() + " contextos.");
+		for(List<String> actualContext:contexts.keySet()){
+			System.out.println(actualContext + " has: " + contexts.get(actualContext));
+		}
 		//print ordering Weight
 		for(Pair<XEventClass> e :orderingWeight.keySet()){
 			System.out.println(e.getFirst().getId() + " " + e.getSecond().getId() + " --> " + orderingWeight.get(e));
@@ -176,16 +193,27 @@ public class ConstructiveContextMinerPlugin {
 		}
 
 		
+		
+		
 		//print the sorted log at console
-		for (Map.Entry<List<XEventClass>, Integer> entry : orderedCount.entrySet()) {
+		/*for (Map.Entry<TraceWithVariant, Integer> entry : orderedCount.entrySet()) {
 			System.out.println(entry.getKey().toString() + entry.getValue());
+		}*/
+		for (TraceWithVariant twv : orderedCountRelative.keySet()) {
+			System.out.println(twv.toString() + orderedCountRelative.get(twv));
 		}
 		
 		//create initial sequence tree with initial trace in the ordered log
-		Iterator<List<XEventClass>> iterator = orderedCount.keySet().iterator();
+		Iterator<TraceWithVariant> iterator = null;
+		
+		if(useRelativeFrequency){
+			iterator = orderedCountRelative.keySet().iterator();
+		}else{
+			iterator = orderedCountAbsolute.keySet().iterator();
+		}
 		ProcessTree tree = null;
 		if(iterator.hasNext()){
-			tree = createInitialSequentialTree(iterator.next());
+			tree = createInitialSequentialTree(iterator.next().getTrace());
 		}
 		else{
 			System.out.println("Log vacio");
@@ -210,7 +238,7 @@ public class ConstructiveContextMinerPlugin {
 				e.printStackTrace();
 				return null;
 			}
-			nextIteration(context, tree, petri, iterator.next());
+			nextIteration(context, tree, petri, iterator.next().getTrace());
 		}
 		return tree;
 
