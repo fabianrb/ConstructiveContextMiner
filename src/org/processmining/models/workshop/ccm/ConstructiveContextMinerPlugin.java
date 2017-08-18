@@ -67,7 +67,8 @@ public class ConstructiveContextMinerPlugin {
 		tree.addNode(root);
 		tree.setRoot(root);
 		for (XEventClass e:events){
-			Node childnode = new AbstractTask.Manual(e.getId());
+			//TODO ver como deshardcodear esto
+			Node childnode = new AbstractTask.Manual(e.getId()+"+");
 			childnode.setProcessTree(tree);
 			tree.addNode(childnode);
 			tree.addEdge(((Block)root).addChild(childnode));
@@ -76,7 +77,7 @@ public class ConstructiveContextMinerPlugin {
 	}
 	public ProcessTree doCCM(PluginContext context, XLog log) {
 		//TODO UI get params
-		XEventClassifier usedClassifier = XLogInfoImpl.STANDARD_CLASSIFIER;
+		XEventClassifier usedClassifier = XLogInfoImpl.NAME_CLASSIFIER;
 		String[] attributes = {"last_phase","branch"};
 		boolean useRelativeFrequency = true;
 		//checkLogAttributes
@@ -224,7 +225,9 @@ public class ConstructiveContextMinerPlugin {
 		PluginPN pt2pn = new PluginPN();
 		
 		//iterate with the rest through the rest of the log
-		while(iterator.hasNext()){
+		int i=3;
+		while(iterator.hasNext() && i>0){
+			i--;
 			//convertir arbol actual
 			Petrinet petri = null;
 			try {
@@ -249,8 +252,7 @@ public class ConstructiveContextMinerPlugin {
 		//create unique trace log
 		XLogBuilder builder = XLogBuilder.newInstance().startLog("newlog").addTrace("newtrace");
 		for(XEventClass event:trace){
-			//TODO ver como deshardcodear esto
-			builder.addEvent(event.getId().substring(0, event.getId().length()-1));
+			builder.addEvent(event.getId());
 		}
 		XLog logOneTrace = builder.build();
 		
