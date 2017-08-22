@@ -67,96 +67,52 @@ public class Test2 {
 	public ProcessTree helloWorld(PluginContext context) {
 		
 		ProcessTree tree = new ProcessTreeUpdatable();
+		Block or1 = new AbstractBlock.Or("");
+		tree.addNode(or1);
+		tree.setRoot(or1);
+		
+		Node n765 = new AbstractTask.Manual("765+complete");
+		tree.addNode(n765);
+		tree.addEdge(or1.addChild(n765));
+		
+		Block or2 = new AbstractBlock.Or("");
+		tree.addNode(or2);
+		tree.addEdge(or1.addChild(or2));
+		
+		Node n770 = new AbstractTask.Manual("770+complete");
+		tree.addNode(n770);
+		tree.addEdge(or2.addChild(n770));
+		
+		Block or3 = new AbstractBlock.Or("");
+		tree.addNode(or3);
+		tree.addEdge(or2.addChild(or3));
+		
+		Node n540 = new AbstractTask.Manual("540+complete");
+		tree.addNode(n540);
+		tree.addEdge(or3.addChild(n540));
+		
 		Block seq1 = new AbstractBlock.Seq("");
 		tree.addNode(seq1);
-		tree.setRoot(seq1);
+		tree.addEdge(or3.addChild(seq1));
 		
-		Node a = new AbstractTask.Manual("a");
-		tree.addNode(a);
-		tree.addEdge(seq1.addChild(a));
-		
+		Node n630 = new AbstractTask.Manual("630+complete");
+		tree.addNode(n630);
+		tree.addEdge(seq1.addChild(n630));
 		
 		Block xor1 = new AbstractBlock.Xor("");
 		tree.addNode(xor1);
 		tree.addEdge(seq1.addChild(xor1));
 		
+		Node theta1 = new AbstractTask.Automatic("");
+		tree.addNode(theta1);
+		tree.addEdge(xor1.addChild(theta1));
 		
-		Block and1 = new AbstractBlock.And("");
-		tree.addNode(and1);
-		tree.addEdge(xor1.addChild(and1));
-		
-		Node c = new AbstractTask.Manual("c");
-		tree.addNode(c);
-		tree.addEdge(and1.addChild(c));
-
-		Node d = new AbstractTask.Manual("d");
-		tree.addNode(d);
-		tree.addEdge(and1.addChild(d));
-		
-		Node b = new AbstractTask.Manual("b");
-		tree.addNode(b);
-		tree.addEdge(and1.addChild(b));
-		
-		Block seq2 = new AbstractBlock.Seq("");
-		tree.addNode(seq2);
-		tree.addEdge(xor1.addChild(seq2));
-		
-		Node b1 = new AbstractTask.Manual("b1");
-		tree.addNode(b1);
-		tree.addEdge(seq2.addChild(b1));
-
-		
-		Block xor3 = new AbstractBlock.Xor("");
-		tree.addNode(xor3);
-		tree.addEdge(seq2.addChild(xor3));		
+		Node n730 = new AbstractTask.Manual("730+complete");
+		tree.addNode(n730);
+		tree.addEdge(xor1.addChild(n730));
 		
 		
-		Node d2 = new AbstractTask.Manual("d2");
-		tree.addNode(d2);
-		tree.addEdge(xor3.addChild(d2));
-		
-
-		Node d_ = new AbstractTask.Manual("d");
-		tree.addNode(d_);
-		tree.addEdge(xor3.addChild(d_));
-
-		
-		Node b2 = new AbstractTask.Manual("b2");
-		tree.addNode(b2);
-		tree.addEdge(seq2.addChild(b2));
-		
-		Node c_ = new AbstractTask.Manual("c+complete");
-		tree.addNode(c_);
-		tree.addEdge(seq2.addChild(c_));
-		
-		Node d2_ = new AbstractTask.Manual("d2");
-		tree.addNode(d2_);
-		tree.addEdge(seq2.addChild(d2_));
-		
-		Block xor2 = new AbstractBlock.Xor("");
-		tree.addNode(xor2);
-		tree.addEdge(seq1.addChild(xor2));
-		
-		Node e = new AbstractTask.Manual("e");
-		tree.addNode(e);
-		tree.addEdge(xor2.addChild(e));
-		
-		
-		Block seq3 = new AbstractBlock.Seq("");
-		tree.addNode(seq3);
-		tree.addEdge(xor2.addChild(seq3));
-		
-		Node f = new AbstractTask.Manual("f");
-		tree.addNode(f);
-		tree.addEdge(seq3.addChild(f));
-		
-		Node g = new AbstractTask.Manual("g");
-		tree.addNode(g);
-		tree.addEdge(seq3.addChild(g));
-		
-		
-		
-		
+				
 		return tree;
 
 	}

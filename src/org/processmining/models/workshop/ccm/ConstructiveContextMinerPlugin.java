@@ -53,6 +53,7 @@ import org.processmining.ptconversions.pn.ProcessTree2Petrinet.NotYetImplemented
 import edu.uci.ics.jung.graph.util.Pair;
 
 public class ConstructiveContextMinerPlugin {
+	
 	@Plugin(name = "Constructive Context Miner", parameterLabels = { "Log" }, returnLabels = { "Hello world string"}, returnTypes = { ProcessTree.class }, userAccessible = true, help = "Produces a representation of a Configurable Process Tree as a String")
 	@UITopiaVariant(affiliation = "Universidad de Chile", author = "Fabian Rojas Blum", email = "fabian.rojas.blum@gmail.com")
 	public ProcessTree helloWorld(PluginContext context, XLog log) {
@@ -78,7 +79,7 @@ public class ConstructiveContextMinerPlugin {
 	public ProcessTree doCCM(PluginContext context, XLog log) {
 		//TODO UI get params
 		XEventClassifier usedClassifier = XLogInfoImpl.NAME_CLASSIFIER;
-		String[] attributes = {"last_phase","branch"};
+		String[] attributes = {"branch"};
 		boolean useRelativeFrequency = true;
 		//checkLogAttributes
 		XLogInfo info = XLogInfoFactory.createLogInfo(log, usedClassifier);
@@ -94,6 +95,8 @@ public class ConstructiveContextMinerPlugin {
 		HashMap<Pair<XEventClass>,Integer> orderingWeight = new HashMap<Pair<XEventClass>,Integer>();
 		HashMap<XEventClass,Set<XEventClass>> preceeds = new HashMap<XEventClass,Set<XEventClass>>();
 		HashMap<XEventClass,Set<XEventClass>> follows = new HashMap<XEventClass,Set<XEventClass>>();
+		
+		
 		
 		for (XTrace trace : log) {	
 			//getting the context (trace attributes)
@@ -137,7 +140,7 @@ public class ConstructiveContextMinerPlugin {
 			TraceWithVariant tracev = new TraceWithVariant(comingtrace, contextAttributes);
 			if (countWithVariant.containsKey(tracev)) {
 				countWithVariant.put(tracev, countWithVariant.get(tracev) + 1);
-			} else {
+			} else {	
 				countWithVariant.put(tracev, 1);
 			}
 			
@@ -225,7 +228,7 @@ public class ConstructiveContextMinerPlugin {
 		PluginPN pt2pn = new PluginPN();
 		
 		//iterate with the rest through the rest of the log
-		int i=3;
+		int i=1;
 		while(iterator.hasNext() && i>0){
 			i--;
 			//convertir arbol actual
@@ -241,7 +244,9 @@ public class ConstructiveContextMinerPlugin {
 				e.printStackTrace();
 				return null;
 			}
-			nextIteration(context, tree, petri, iterator.next().getTrace());
+			TraceWithVariant next = iterator.next();
+			//System.out.println("Contexto:" + Arrays.toString(next.getContext()) + "valor:" + orderedCountRelative.get(next));
+			nextIteration(context, tree, petri, next.getTrace());
 		}
 		return tree;
 
@@ -255,7 +260,36 @@ public class ConstructiveContextMinerPlugin {
 			builder.addEvent(event.getId());
 		}
 		XLog logOneTrace = builder.build();
+		List<Alignment> alignment = doAlignments(context, logOneTrace, petri,tree);
+		checkPatterns(tree, alignment);
 		
+	}
+	
+	private void checkPatterns(ProcessTree tree, List<Alignment> alignment){
+		checkUnderspecified(tree,alignment);
+	}
+
+	private void checkUnderspecified(ProcessTree tree, List<Alignment> alignment) {
+		for(int i=0;i<alignment.size();i++){
+			Alignment a = alignment.get(i);
+			if(a.getType()==AlignType.log){
+				if(i>0){
+				Node n = alignment.get(i-1).getValue();
+				Block p = n.getParents().iterator().next();
+				int index = p.getChildren().indexOf(n);
+				tree.addNode(a.getValue());
+				tree.addEdge(p.addChildAt(a.getValue(), index));
+				}else{
+					System.out.println("Error: primer nodo");
+				}
+			}
+		}
+		
+	}
+
+	private List<Alignment> doAlignments(PluginContext context, XLog logOneTrace, Petrinet petri,ProcessTree tree){
+		
+		List<Alignment> alignments = new ArrayList<Alignment> ();
 		//Check alignments between single log and current model  
 		SyncReplayResult rep = replayLog(context,logOneTrace,petri);
 		Iterator<Object> itTask = rep.getNodeInstance().iterator();
@@ -264,21 +298,51 @@ public class ConstructiveContextMinerPlugin {
 			StepTypes type = itType.next();
 			Object a = itTask.next();
 			
+			Node n;
 			switch (type){
-				case LMGOOD : System.out.print("Sync move --> "); Transition t = (Transition)a; System.out.println(t.getLabel()); break; //Transition					case LMNOGOOD : System.out.println("False sync move"); break;//--
-				case L : System.out.print("Log move --> "); XEventClass tl = (XEventClass) a; System.out.println(tl.getId()); break;//Log Automaton Node
+				case LMGOOD : 
+					System.out.print("Sync move --> "); 
+					Transition t = (Transition)a; 
+					System.out.println(t.getLabel()); 
+					n = getNode(t.getLabel(), tree);
+					alignments.add(new Alignment(n, n, AlignType.sync));
+					break; //Transition					case LMNOGOOD : System.out.println("False sync move"); break;//--
+				case L : System.out.print("Log move --> "); 
+					XEventClass tl = (XEventClass) a; 
+					System.out.println(tl.getId());
+					n = getNode(tl.getId(),tree);
+					if(n==null){
+						n=new AbstractTask.Manual(tl.getId());
+					}
+					alignments.add(new Alignment(null, n, AlignType.log));
+					
+					break;//Log Automaton Node
 				case MINVI : System.out.println("Invisible step"); break;//Transition
-				case MREAL : System.out.print("Model move --> "); Transition tm = (Transition)a; System.out.println(tm.getLabel()); break;//Transition
+				case MREAL : 
+					System.out.print("Model move --> "); 
+					Transition tm = (Transition)a; 
+					System.out.println(tm.getLabel()); 
+					n=getNode(tm.getLabel(),tree);
+					alignments.add(new Alignment(n, null, AlignType.model));
+					break;//Transition
 				case LMREPLACED : System.out.println("Replaced step"); break;//--
 				case LMSWAPPED: System.out.println("Swapped step"); break;//--
 				default: break;
 			}
 		}
-		
+		return alignments;
 		
 		
 	}
-
+	
+	
+	private Node getNode(String label, ProcessTree tree){
+		for(Node n:tree.getNodes()){
+			if(n.getName().equals(label))
+				return n;
+		}
+		return null;
+	}
 	//Replay single
 	private SyncReplayResult replayLog(PluginContext context, XLog logOneTrace,
 			Petrinet petri) {
