@@ -61,7 +61,7 @@ public class ConstructiveContextMinerPlugin {
 	}
 
 	//Creates an initial tree as a sequence with the specified list of events 
-	private ProcessTree createInitialSequentialTree(List<XEventClass>events){
+	private ProcessTree createInitialSequentialTree(List<XEventClass>events, int context, HashMap<Node,String[]> configurations){
 		ProcessTree tree = new ProcessTreeImpl();
 		Node root = new AbstractBlock.Seq("");
 		root.setProcessTree(tree);
@@ -154,6 +154,12 @@ public class ConstructiveContextMinerPlugin {
 			
 		}
 		
+		List<List<String>> allContexts = new ArrayList(contexts.keySet()); 
+		System.out.println("Context Order");
+		for(List<String> ac:allContexts){
+			System.out.println(ac);
+		}
+		
 		//resort according to relative frequency
 		HashMap<TraceWithVariant, Float> relativeFreqWithVariant = new HashMap<TraceWithVariant, Float>();
 		
@@ -216,8 +222,10 @@ public class ConstructiveContextMinerPlugin {
 			iterator = orderedCountAbsolute.keySet().iterator();
 		}
 		ProcessTree tree = null;
+		HashMap<Node,String[]> configurations = new HashMap<Node,String[]>();
 		if(iterator.hasNext()){
-			tree = createInitialSequentialTree(iterator.next().getTrace());
+			TraceWithVariant next = iterator.next();
+			tree = createInitialSequentialTree(next.getTrace(),allContexts.indexOf(Arrays.asList(next.getContext())),configurations);
 		}
 		else{
 			System.out.println("Log vacio");
