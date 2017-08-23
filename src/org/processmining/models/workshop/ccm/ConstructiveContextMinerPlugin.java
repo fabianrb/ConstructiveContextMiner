@@ -53,6 +53,9 @@ import org.processmining.ptconversions.pn.ProcessTree2Petrinet.NotYetImplemented
 import edu.uci.ics.jung.graph.util.Pair;
 
 public class ConstructiveContextMinerPlugin {
+	List<List<String>> allContexts;
+	HashMap<Node,String[]> configurations;
+	
 	
 	@Plugin(name = "Constructive Context Miner", parameterLabels = { "Log" }, returnLabels = { "Hello world string"}, returnTypes = { ProcessTree.class }, userAccessible = true, help = "Produces a representation of a Configurable Process Tree as a String")
 	@UITopiaVariant(affiliation = "Universidad de Chile", author = "Fabian Rojas Blum", email = "fabian.rojas.blum@gmail.com")
@@ -61,21 +64,32 @@ public class ConstructiveContextMinerPlugin {
 	}
 
 	//Creates an initial tree as a sequence with the specified list of events 
-	private ProcessTree createInitialSequentialTree(List<XEventClass>events, int context, HashMap<Node,String[]> configurations){
+	private ProcessTree createInitialSequentialTree(List<XEventClass>events, int context){
 		ProcessTree tree = new ProcessTreeImpl();
 		Node root = new AbstractBlock.Seq("");
 		root.setProcessTree(tree);
 		tree.addNode(root);
 		tree.setRoot(root);
+		createBConfiguration(root);
+		
 		for (XEventClass e:events){
 			//TODO ver como deshardcodear esto
 			Node childnode = new AbstractTask.Manual(e.getId()+"+");
 			childnode.setProcessTree(tree);
 			tree.addNode(childnode);
 			tree.addEdge(((Block)root).addChild(childnode));
+			createBConfiguration(childnode);
+
 		}
 		return tree;
 	}
+	
+	private void createBConfiguration(Node n){
+		String[] config = new String [allContexts.size()];
+		Arrays.fill(config, "B");
+		configurations.put(n,config);
+	}
+
 	public ProcessTree doCCM(PluginContext context, XLog log) {
 		//TODO UI get params
 		XEventClassifier usedClassifier = XLogInfoImpl.NAME_CLASSIFIER;
@@ -154,7 +168,7 @@ public class ConstructiveContextMinerPlugin {
 			
 		}
 		
-		List<List<String>> allContexts = new ArrayList(contexts.keySet()); 
+		allContexts = new ArrayList(contexts.keySet()); 
 		System.out.println("Context Order");
 		for(List<String> ac:allContexts){
 			System.out.println(ac);
@@ -210,7 +224,7 @@ public class ConstructiveContextMinerPlugin {
 			System.out.println(entry.getKey().toString() + entry.getValue());
 		}*/
 		for (TraceWithVariant twv : orderedCountRelative.keySet()) {
-			System.out.println(twv.toString() + orderedCountRelative.get(twv));
+			System.out.println(twv.toString() + " Relative: " +orderedCountRelative.get(twv) + " Absolute freq " + orderedCountAbsolute.get(twv));
 		}
 		
 		//create initial sequence tree with initial trace in the ordered log
@@ -222,10 +236,10 @@ public class ConstructiveContextMinerPlugin {
 			iterator = orderedCountAbsolute.keySet().iterator();
 		}
 		ProcessTree tree = null;
-		HashMap<Node,String[]> configurations = new HashMap<Node,String[]>();
+		configurations = new HashMap<Node,String[]>();
 		if(iterator.hasNext()){
 			TraceWithVariant next = iterator.next();
-			tree = createInitialSequentialTree(next.getTrace(),allContexts.indexOf(Arrays.asList(next.getContext())),configurations);
+			tree = createInitialSequentialTree(next.getTrace(),getContextIndex(next.getContextAsList()));
 		}
 		else{
 			System.out.println("Log vacio");
@@ -256,10 +270,16 @@ public class ConstructiveContextMinerPlugin {
 			//System.out.println("Contexto:" + Arrays.toString(next.getContext()) + "valor:" + orderedCountRelative.get(next));
 			nextIteration(context, tree, petri, next.getTrace());
 		}
+		for(Node n:configurations.keySet()){
+			System.out.println(n.getName()+"["+Arrays.toString(configurations.get(n))+"]");			
+		}
 		return tree;
 
 	}
 
+	private int getContextIndex(List<String> context){
+		return allContexts.indexOf(context);
+	}
 	private void nextIteration(PluginContext context, ProcessTree tree, Petrinet petri,
 			List<XEventClass> trace) {
 		//create unique trace log
